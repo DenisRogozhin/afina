@@ -88,7 +88,7 @@ public:
 
         log->warn("Start storage");
         storage->Start();
-
+	log->warn("Test");
         // TODO: configure network service
         const uint16_t port = 8080;
         log->warn("Start network on {}", port);
