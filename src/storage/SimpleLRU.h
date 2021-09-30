@@ -28,10 +28,6 @@ public:
         }
     }
 
-    void add_node1(const std::string & key, const std::string &value); 
-    void add_node(const std::string & key, const std::string &value, std::size_t size); 
-
-
     // Implements Afina::Storage interface
     bool Put(const std::string &key, const std::string &value) override;
 
@@ -48,6 +44,15 @@ public:
     bool Get(const std::string &key, std::string &value) override;
 
 private:
+
+    void push_front(const std::string & key, const std::string &value); 
+
+    void add_node(const std::string & key, const std::string &value, std::size_t size); 
+
+    void delete_tail(std::size_t size);
+
+    bool update_node(const std::string &key, const std::string &value, bool get_value = false);
+
     // LRU cache node
     using lru_node = struct lru_node {
         const std::string key;
