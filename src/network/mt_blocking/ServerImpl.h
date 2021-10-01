@@ -3,8 +3,13 @@
 
 #include <atomic>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <set>
 
 #include <afina/network/Server.h>
+
+#define MAX_THREADS 128
 
 namespace spdlog {
 class logger;
@@ -39,6 +44,8 @@ protected:
     void OnRun();
 
 private:
+    void work_cycle(int client_socket);
+
     // Logger instance
     std::shared_ptr<spdlog::logger> _logger;
 
@@ -52,6 +59,12 @@ private:
 
     // Thread to run network on
     std::thread _thread;
+
+    std::mutex server_mutex;
+
+    std::set<int> client_sockets;
+    
+    std::condition_variable cv;
 };
 
 } // namespace MTblocking
