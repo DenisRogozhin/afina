@@ -122,8 +122,8 @@ bool SimpleLRU::Put(const std::string &key, const std::string &value) {
 		return add_node(key, value);	
 	}
 	move_to_head(map_iter);
-        lru_node & node = map_iter->second.get();
-        std::size_t old_len = node.value.length();
+	lru_node & node = map_iter->second.get();
+	std::size_t old_len = node.value.length();
 	std::size_t new_len = value.length();
 	ensure_space(old_len, new_len);
 	map_iter->second.get().value = value;		
@@ -150,8 +150,8 @@ bool SimpleLRU::Set(const std::string &key, const std::string &value) {
 		return false;	
 	}
 	move_to_head(map_iter);
-        lru_node & node = map_iter->second.get();
-        std::size_t old_len = node.value.length();
+	lru_node & node = map_iter->second.get();
+	std::size_t old_len = node.value.length();
 	std::size_t new_len = value.length();
 	ensure_space(old_len, new_len);
 	map_iter->second.get().value = value;		
