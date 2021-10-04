@@ -45,14 +45,6 @@ public:
 
 private:
 
-    void push_front(const std::string & key, const std::string &value); 
-
-    void add_node(const std::string & key, const std::string &value, std::size_t size); 
-
-    void delete_tail(std::size_t size);
-
-    bool update_node(const std::string &key, const std::string &value, bool get_value = false);
-
     // LRU cache node
     using lru_node = struct lru_node {
         const std::string key;
@@ -72,10 +64,17 @@ private:
     // List owns all nodes
     std::unique_ptr<lru_node> _lru_head;
     lru_node * tail;
-    std::string saved_value;	
 
     // Index of nodes from list above, allows fast random access to elements by lru_node#key
     std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>> _lru_index;
+
+    void push_front(const std::string & key, const std::string &value); 
+
+    bool add_node(const std::string & key, const std::string &value);
+
+    void ensure_space(std::size_t old_len, std::size_t new_len);
+
+    void move_to_head(std::map<std::reference_wrapper<const std::string>, std::reference_wrapper<lru_node>, std::less<std::string>>::iterator & map_iter);
 };
 
 } // namespace Backend
