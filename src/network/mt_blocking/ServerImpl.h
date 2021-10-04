@@ -9,8 +9,6 @@
 
 #include <afina/network/Server.h>
 
-#define MAX_THREADS 128
-
 namespace spdlog {
 class logger;
 }
@@ -25,7 +23,7 @@ namespace MTblocking {
  */
 class ServerImpl : public Server {
 public:
-    ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl);
+    ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl, int max_threads = 1024);
     ~ServerImpl();
 
     // See Server.h
@@ -62,9 +60,11 @@ private:
 
     std::mutex server_mutex;
 
-    std::set<int> client_sockets;
+    std::set<int> sockets;
     
     std::condition_variable cv;
+
+    int MAX_THREADS;
 };
 
 } // namespace MTblocking

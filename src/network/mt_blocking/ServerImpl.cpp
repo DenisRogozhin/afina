@@ -28,7 +28,7 @@ namespace Network {
 namespace MTblocking {
 
 // See Server.h
-ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl) : Server(ps, pl) {}
+ServerImpl::ServerImpl(std::shared_ptr<Afina::Storage> ps, std::shared_ptr<Logging::Service> pl, int max_threads) : Server(ps, pl) { MAX_THREADS = max_threads; }
 
 // See Server.h
 ServerImpl::~ServerImpl() {}
@@ -73,17 +73,17 @@ void ServerImpl::Start(uint16_t port, uint32_t n_accept, uint32_t n_workers) {
     }
 
     running.store(true);
-    _thread = std::thread(&ServerImpl::OnRun, this);
+    sockets.emplace(_server_socket);
+    _thread = std::thread(&ServerImpl::OnRun, this);   
 }
 
 // See Server.h
 void ServerImpl::Stop() {
     running.store(false);
-    shutdown(_server_socket, SHUT_RDWR);
     {
 	std::unique_lock<std::mutex> lock(server_mutex);
-	auto iter = client_sockets.begin();
-	for (;iter != client_sockets.end() ; ++iter) {
+	auto iter = sockets.begin();
+	for (;iter != sockets.end() ; ++iter) {
 		int client_socket = *iter;
 		shutdown(client_socket, SHUT_RD);
 	}
@@ -94,14 +94,11 @@ void ServerImpl::Stop() {
 void ServerImpl::Join() {
     {
 	std::unique_lock<std::mutex> lock(server_mutex);
-        while (running.load() || !client_sockets.empty()) {
+        while (running.load() || !sockets.empty()) {
 		cv.wait(lock);	
 	}
     }
-    if (_thread.joinable()) {
-    	_thread.join();
-    }
-    close(_server_socket);
+    _thread.join();
 }
 
 void ServerImpl::work_cycle(int client_socket) {
@@ -191,9 +188,9 @@ void ServerImpl::work_cycle(int client_socket) {
 
 	{
 		std::unique_lock<std::mutex> lock(server_mutex);
+		sockets.erase(client_socket);
 		close(client_socket);
-		client_sockets.erase(client_socket);
-                if (!running.load() && client_sockets.empty()) {
+                if (!running.load() && sockets.empty()) {
 			cv.notify_all();	
 	        }
 				
@@ -242,17 +239,26 @@ void ServerImpl::OnRun() {
 
 	{ 
 		std::unique_lock<std::mutex> lock(server_mutex);
-		if (client_sockets.size() >= MAX_THREADS) {
+		if (sockets.size() >= MAX_THREADS) {
 			_logger->warn("Too many clients are working with network now");
 			close(client_socket);
 		}
 		else {
-			client_sockets.emplace(client_socket);
+			sockets.emplace(client_socket);
 			std::thread thread(&ServerImpl::work_cycle, this, client_socket);
 			thread.detach();
 		}
 	}
     }
+
+    {
+	std::unique_lock<std::mutex> lock(server_mutex);
+	sockets.erase(_server_socket);
+	close(_server_socket);
+        if (!running.load() && sockets.empty()) {
+		cv.notify_all();	
+	}
+    }	  
 
     // Cleanup on exit...
     _logger->warn("Network stopped");
