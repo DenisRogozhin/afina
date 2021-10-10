@@ -22,13 +22,13 @@ class StripedLockLRU : public SimpleLRU {
 public:
   
     StripedLockLRU(size_t memory_limit = 4 * 1024 * 1024, size_t stripe_count = 4) {
-	stripe_limit = memory_limit / stripe_count;
+        stripe_limit = memory_limit / stripe_count;
         this->stripe_count = stripe_count;
-	assert(stripe_limit >= 1024 * 1024);
-	for (int i = 0 ; i < stripe_count ; ++i) {
-		std::unique_ptr<ThreadSafeSimplLRU> x(new ThreadSafeSimplLRU(stripe_limit));
-		stripes.push_back(std::move(x));	
-	}
+        assert(stripe_limit >= 1024 * 1024);
+        for (int i = 0 ; i < stripe_count ; ++i) {
+	        std::unique_ptr<ThreadSafeSimplLRU> x(new ThreadSafeSimplLRU(stripe_limit));
+	        stripes.push_back(std::move(x));	
+        }
     }
 
     ~StripedLockLRU() {
