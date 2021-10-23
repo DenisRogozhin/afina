@@ -21,50 +21,56 @@ class StripedLockLRU : public SimpleLRU {
 
 public:
   
-    StripedLockLRU(size_t memory_limit = 4 * 1024 * 1024, size_t stripe_count = 4) {
-        stripe_limit = memory_limit / stripe_count;
+   StripedLockLRU(size_t stripe_limit, size_t stripe_count) {
         this->stripe_count = stripe_count;
-        assert(stripe_limit >= 1024 * 1024);
         for (int i = 0 ; i < stripe_count ; ++i) {
 	        std::unique_ptr<ThreadSafeSimplLRU> x(new ThreadSafeSimplLRU(stripe_limit));
 	        stripes.push_back(std::move(x));	
         }
     }
 
+
+   static std::shared_ptr<StripedLockLRU> BuildStripedLRU(std::size_t memory_limit = 4 * 1024 * 1024, std::size_t stripe_count = 4) {    
+	std::size_t stripe_limit = memory_limit / stripe_count;
+	if (stripe_limit < 1024 * 1024) {
+		throw std::runtime_error("Stripe size < MIN_STRIPE_SIZE");		
+	}
+        return std::make_shared<StripedLockLRU>(stripe_limit, stripe_count);
+
+   }
+
     ~StripedLockLRU() {
-	stripes.clear();
     }
 
     // see SimpleLRU.h
     bool Put(const std::string &key, const std::string &value) override {
-        return stripes[hash(key) % stripe_count]->ThreadSafeSimplLRU::Put(key, value);
+        return stripes[std::hash<std::string>{}(key) % stripe_count]->ThreadSafeSimplLRU::Put(key, value);
     }
 
     // see SimpleLRU.h
     bool PutIfAbsent(const std::string &key, const std::string &value) override {
-        return stripes[hash(key) % stripe_count]->ThreadSafeSimplLRU::PutIfAbsent(key, value);
+        return stripes[std::hash<std::string>{}(key)  % stripe_count]->ThreadSafeSimplLRU::PutIfAbsent(key, value);
     }
 
     // see SimpleLRU.h
     bool Set(const std::string &key, const std::string &value) override {
-        return stripes[hash(key) % stripe_count]->ThreadSafeSimplLRU::Set(key, value);
+        return stripes[std::hash<std::string>{}(key)  % stripe_count]->ThreadSafeSimplLRU::Set(key, value);
     }
 
     // see SimpleLRU.h
     bool Delete(const std::string &key) override {
-        return stripes[hash(key) % stripe_count]->ThreadSafeSimplLRU::Delete(key);
+        return stripes[std::hash<std::string>{}(key)  % stripe_count]->ThreadSafeSimplLRU::Delete(key);
     }
 
     // see SimpleLRU.h
     bool Get(const std::string &key, std::string &value) override {
-        return stripes[hash(key) % stripe_count]->ThreadSafeSimplLRU::Get(key, value);
+        return stripes[std::hash<std::string>{}(key) % stripe_count]->ThreadSafeSimplLRU::Get(key, value);
     }
 
 private:
+
     std::vector<std::unique_ptr<ThreadSafeSimplLRU>> stripes;
-    std::hash<std::string> hash;
     std::size_t stripe_count;
-    std::size_t stripe_limit;
 };
 
 } // namespace Backend
