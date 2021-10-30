@@ -24,6 +24,7 @@ public:
         std::memset(&_event, 0, sizeof(struct epoll_event));
         _event.data.ptr = this;
         isalive = true;
+        already_read = 0;
         _logger = logger;
         pStorage = pstorage;
     }
@@ -50,6 +51,7 @@ private:
 
     bool isalive;
     int _socket;
+    int already_read;
     char client_buffer[4096];
     struct epoll_event _event;
     int head_offset;

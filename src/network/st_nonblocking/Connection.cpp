@@ -26,7 +26,7 @@ void Connection::OnClose() {
 void Connection::DoRead() { 
 	try {
             int readed_bytes = -1;
-            while ((readed_bytes = read(_socket, client_buffer, sizeof(client_buffer))) > 0) {
+            if ((readed_bytes = read(_socket, &client_buffer[already_read], sizeof(client_buffer) - already_read)) > 0) {
                 _logger->debug("Got {} bytes from socket", readed_bytes);
 
                 // Single block of data readed from the socket could trigger inside actions a multiple times,
@@ -51,6 +51,7 @@ void Connection::DoRead() {
                         // Parsed might fails to consume any bytes from input stream. In real life that could happens,
                         // for example, because we are working with UTF-16 chars and only 1 byte left in stream
                         if (parsed == 0) {
+                            already_read = readed_bytes;
                             break;
                         } else {
                             std::memmove(client_buffer, client_buffer + parsed, readed_bytes - parsed);
@@ -82,8 +83,9 @@ void Connection::DoRead() {
 
                         // Send response
                         result += "\r\n";
+                        already_read = 0; 
                         outgoing.emplace_back(result);
-			_event.events |= EPOLLOUT;
+                        _event.events |= EPOLLOUT;
 				
 
                         // Prepare for the next command
@@ -95,7 +97,7 @@ void Connection::DoRead() {
             }
 
             if (readed_bytes == 0) {
-		 isalive = false;
+                _event.events &= ~EPOLLIN;
                 _logger->debug("Connection closed");	     
              } else { //readed_bytes = -1
 			if (errno != EWOULDBLOCK) {	
@@ -105,6 +107,10 @@ void Connection::DoRead() {
 		}
         } catch (std::runtime_error &ex) {
             _logger->error("Failed to process connection on descriptor {}: {}", _socket, ex.what());
+            command_to_execute.reset();
+            isalive = false;
+            argument_for_command.resize(0);
+            parser.Reset();
         } 
 }
 
@@ -123,17 +129,18 @@ void Connection::DoWrite() {
 			}
 			else {
 				isalive = false;
+				return;
 			}
 		}
 		outgoing.pop_front();
 		head_offset = 0;
 	}
-	_event.events &= ~EPOLLOUT;
-	// если не добавить строчку снизу, то когда я подключаюсь к серверу с командой:
-	// echo -n -e "set foo 0 0 6\r\nfooval\r\n" | nc localhost 8080
-	// то после ее выполнения клиент не завершается, а продолжает висеть:(
-	// не очень понимаю, почему, кажется, что она тут не нужна
-	isalive = false;
+	if (_event.events & EPOLLIN) {
+		_event.events &= ~EPOLLOUT;
+	}
+	else {
+		isalive = false;
+	}
 }
 
 } // namespace STnonblock
