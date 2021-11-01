@@ -24,6 +24,7 @@ public:
         std::memset(&_event, 0, sizeof(struct epoll_event));
         _event.data.ptr = this;
         isalive = true;
+        only_answer = false;
         already_read = 0;
         _logger = logger;
         pStorage = pstorage;
@@ -49,7 +50,9 @@ private:
     std::size_t arg_remains = 0;
     Protocol::Parser parser;
 
+    int max_size = 100;
     bool isalive;
+    bool only_answer;
     int _socket;
     int already_read;
     char client_buffer[4096];

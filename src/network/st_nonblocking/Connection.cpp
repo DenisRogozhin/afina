@@ -33,6 +33,8 @@ void Connection::DoRead() {
                 // for example:
                 // - read#0: [<command1 start>]
                 // - read#1: [<command1 end> <argument> <command2> <argument for command 2> <command3> ... ]
+                
+                readed_bytes += already_read;
                 while (readed_bytes > 0) {
                     _logger->debug("Process {} bytes", readed_bytes);
                     // There is no command yet
@@ -85,6 +87,9 @@ void Connection::DoRead() {
                         result += "\r\n";
                         already_read = 0; 
                         outgoing.emplace_back(result);
+                        if (outgoing.size() >= max_size) {
+                                _event.events &= ~EPOLLIN;
+                        }
                         _event.events |= EPOLLOUT;
 				
 
@@ -97,18 +102,27 @@ void Connection::DoRead() {
             }
 
             if (readed_bytes == 0) {
-                _event.events &= ~EPOLLIN;
+                only_answer = true;
                 _logger->debug("Connection closed");	     
              } else { //readed_bytes = -1
-			if (errno != EWOULDBLOCK) {	
+			if (errno != EAGAIN) {	
 				isalive = false;
                 		throw std::runtime_error(std::string(strerror(errno)));
                		}
 		}
         } catch (std::runtime_error &ex) {
             _logger->error("Failed to process connection on descriptor {}: {}", _socket, ex.what());
+
+  
+	   outgoing.push_back("ERROR\r\n");
+           if (!(_event.events & EPOLLOUT)) {
+            _event.events |= EPOLLOUT;
+           }
+            only_answer = true;
+
+            //isalive = false;
+            _event.events &= ~EPOLLIN;
             command_to_execute.reset();
-            isalive = false;
             argument_for_command.resize(0);
             parser.Reset();
         } 
@@ -125,7 +139,7 @@ void Connection::DoWrite() {
 				continue;
 			}
 			else if (errno == EWOULDBLOCK) {
-				return;		
+				return;	
 			}
 			else {
 				isalive = false;
@@ -133,9 +147,12 @@ void Connection::DoWrite() {
 			}
 		}
 		outgoing.pop_front();
+		if ((outgoing.size() <= 0.9 * max_size) && !only_answer) {
+			_event.events |= EPOLLIN;
+		}
 		head_offset = 0;
 	}
-	if (_event.events & EPOLLIN) {
+	if (!only_answer) {
 		_event.events &= ~EPOLLOUT;
 	}
 	else {
