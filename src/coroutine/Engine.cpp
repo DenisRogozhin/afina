@@ -30,7 +30,12 @@ Engine::~Engine() {
 
 void Engine::Store(context &ctx) {
 	char a;
-	ctx.Hight = &a;
+	if (&a <= ctx.Low) {
+		ctx.Low = &a;
+	}
+	else {
+		ctx.Hight = &a;
+	}
 	std::size_t stack_size = ctx.Hight - ctx.Low;
 	if (std::get<1>(ctx.Stack) < stack_size) {
 		delete[] std::get<0>(ctx.Stack);
@@ -43,9 +48,11 @@ void Engine::Store(context &ctx) {
 }
 
 void Engine::Restore(context &ctx) {
-	std::size_t stack_size = ctx.Hight - ctx.Low;
-	//
-	memcpy(ctx.Low, std::get<0>(ctx.Stack),stack_size);
+	char a;
+	if (&a >= ctx.Low && &a <= ctx.Hight) {
+		Restore(ctx);
+	}
+	memcpy(ctx.Low, std::get<0>(ctx.Stack),ctx.Hight - ctx.Low);
 	cur_routine = &ctx;
 	longjmp(ctx.Environment, 1);
 }
@@ -58,9 +65,7 @@ void Engine::yield() {
 	if (ctx == cur_routine) {
 		ctx = ctx->next;
 	}
-	if (ctx) {
-		sched(ctx);
-	}
+	sched(ctx);
 }
 
 void Engine::sched(void *routine_) {
