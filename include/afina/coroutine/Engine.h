@@ -18,7 +18,7 @@ namespace Coroutine {
  */
 class Engine final {
 public:
-    using unblocker_func = std::function<void(Engine &)>;
+    using unblocker_func = std::function<void()>;
 
 private:
     /**
@@ -87,7 +87,7 @@ protected:
      */
     void Restore(context &ctx);
 
-    static void null_unblocker(Engine &) {}
+    static void null_unblocker() {}
 
 public:
     Engine(unblocker_func unblocker = null_unblocker)
@@ -95,6 +95,11 @@ public:
     Engine(Engine &&) = delete;
     Engine(const Engine &) = delete;
     ~Engine();
+
+
+    context * get_cur_routine() {
+        return cur_routine;
+    }
 
     /**
      * Gives up current routine execution and let engine to schedule other one. It is not defined when
@@ -150,8 +155,8 @@ public:
         idle_ctx->Low = this->StackBottom;
         idle_ctx->Hight = this->StackBottom;
         if (setjmp(idle_ctx->Environment) > 0) {
-            if (alive == nullptr) {
-                _unblocker(*this);
+            if ((alive == nullptr) && (blocked != nullptr)) {
+                _unblocker();
             }
             cur_routine = idle_ctx;
             // Here: correct finish of the coroutine section
