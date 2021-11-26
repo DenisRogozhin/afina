@@ -94,7 +94,7 @@ void ServerImpl::Join() {
 }
 
 void ServerImpl::work_cycle(int client_socket) {
-	std::size_t arg_remains;
+	std::size_t arg_remains = 0;
     	Protocol::Parser parser;
     	std::string argument_for_command;
     	std::unique_ptr<Execute::Command> command_to_execute;
@@ -282,16 +282,6 @@ void ServerImpl::OnRun() {
         if ((client_socket = coro_accept(_server_socket, client_addr, client_addr_len)) == -1) {
             continue;
         }
-        else if ((client_socket < 0) && (errno == EWOULDBLOCK)) {
-            struct epoll_event event;
-            event.events = EPOLLIN;
-            event.data.ptr = engine.get_cur_routine();
-            if (epoll_ctl(epoll_descr, EPOLL_CTL_ADD, _event_fd, &event2)) {
-                throw std::runtime_error("Failed to add file descriptor to epoll");
-            }
-            engine.block();
-        }
-
         // Got new connection
         if (_logger->should_log(spdlog::level::debug)) {
             std::string host = "unknown", port = "-1";
@@ -314,8 +304,8 @@ void ServerImpl::OnRun() {
         }
 
         sockets.emplace(client_socket);
-        //engine.run(&ServerImpl::work_cycle, this, client_socket);
-        //engine.start(static_cast<void(*)(ServerImpl *)>([](ServerImpl *s){ s->OnRun(); }), this);
+	        
+
         void * pa = engine.run(static_cast<void(*)(ServerImpl *, int &)>([](ServerImpl *s, int & socket){ s->work_cycle(socket); }), this, client_socket);
         engine.sched(pa);
     }

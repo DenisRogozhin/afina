@@ -3,6 +3,8 @@
 #include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
+#include <cassert>
+
 
 namespace Afina {
 namespace Coroutine {
@@ -115,12 +117,11 @@ void Engine::block(void *coro) {
 		coro_to_block->next -> prev = coro_to_block;
 	}
 	if (coro_to_block == cur_routine) {
-		if (cur_routine != idle_ctx) {
-			if (setjmp(cur_routine->Environment) > 0) {
-				return;
-			}
-			Store(*cur_routine);
+		assert(cur_routine != idle_ctx);
+		if (setjmp(cur_routine->Environment) > 0) {
+			return;
 		}
+		Store(*cur_routine);
 		Restore(*idle_ctx);
 	}
 }
