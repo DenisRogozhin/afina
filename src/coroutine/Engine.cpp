@@ -3,6 +3,8 @@
 #include <setjmp.h>
 #include <stdio.h>
 #include <string.h>
+#include <cassert>
+
 
 namespace Afina {
 namespace Coroutine {
@@ -84,6 +86,69 @@ void Engine::sched(void *routine_) {
 		Store(*cur_routine);
 	}
 	Restore(*routine);
+}
+
+void Engine::block(void *coro) {
+	context * coro_to_block;
+	if (coro == nullptr) {
+		coro_to_block = cur_routine;	
+	}
+	else {
+		coro_to_block = static_cast<context *>(coro);
+	}
+	if (!coro_to_block or coro_to_block->is_blocked) {
+		return;	
+	}
+        coro_to_block->is_blocked = true;
+	//delete from alive add to blocked
+ 	if (alive == coro_to_block) {
+                alive = alive->next;
+	}
+	if (coro_to_block->prev) {
+		coro_to_block->prev->next = coro_to_block->next;
+	}
+	if (coro_to_block->next) {
+		coro_to_block->next->prev = coro_to_block->prev;
+	}
+	coro_to_block->prev = nullptr;
+	coro_to_block->next = blocked;
+	blocked = coro_to_block;
+	if (coro_to_block->next) {
+		coro_to_block->next -> prev = coro_to_block;
+	}
+	if (coro_to_block == cur_routine) {
+		assert(cur_routine != idle_ctx);
+		if (setjmp(cur_routine->Environment) > 0) {
+			return;
+		}
+		Store(*cur_routine);
+		Restore(*idle_ctx);
+	}
+}
+
+
+void Engine::unblock(void *coro){ 
+	context * coro_to_unblock = static_cast<context *> (coro);
+	if (!coro_to_unblock or coro_to_unblock->is_blocked) {
+		return;	
+	}
+	//delete from blocked add to alive
+ 	if (blocked == coro_to_unblock) {
+                blocked = blocked->next;
+	}
+        coro_to_unblock->is_blocked = false;
+	if (coro_to_unblock->prev) {
+		coro_to_unblock->prev->next = coro_to_unblock->next;
+	}
+	if (coro_to_unblock->next) {
+		coro_to_unblock->next->prev = coro_to_unblock->prev;
+	}
+	coro_to_unblock->prev = nullptr;
+	coro_to_unblock->next = alive;
+	alive = coro_to_unblock;
+	if (coro_to_unblock->next) {
+		coro_to_unblock->next -> prev = coro_to_unblock;
+	}
 }
 
 } // namespace Coroutine
